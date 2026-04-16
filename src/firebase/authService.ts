@@ -10,6 +10,15 @@ import { auth, db, firebaseConfigMessage, isFirebaseConfigured } from "./config"
 
 export type UserRole = "student" | "teacher" | "admin";
 
+// Secret code required for admin registration (HOD/Principal only)
+const ADMIN_SECRET_CODE = "SMARTASSIGN-ADMIN-2026";
+
+// Allowed college email domains for students
+const COLLEGE_EMAIL_DOMAINS = [
+  "edu", "edu.in", "ac.in", "college.edu", "university.edu",
+  "gmail.com", // Allow gmail for demo purposes - remove in production
+];
+
 export interface UserProfile {
   uid: string;
   role: UserRole;
@@ -36,6 +45,21 @@ export interface TeacherProfile extends UserProfile {
 export interface AdminProfile extends UserProfile {
   adminId: string;
   department: string;
+  designation: string;
+}
+
+export function validateCollegeEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase() || "";
+  return COLLEGE_EMAIL_DOMAINS.some((allowed) => domain.endsWith(allowed));
+}
+
+export function validateFacultyId(facultyId: string): boolean {
+  // Faculty ID must be in format: FAC-XXXX-XXX or similar (at least 3 chars)
+  return facultyId.trim().length >= 3;
+}
+
+export function validateAdminCode(code: string): boolean {
+  return code === ADMIN_SECRET_CODE;
 }
 
 export function getFirebaseAuthErrorMessage(err: unknown, fallback: string) {
@@ -84,10 +108,30 @@ export async function signUp(
     throw new Error(firebaseConfigMessage);
   }
 
+  // Validate college email for students
+  if (role === "student" && !validateCollegeEmail(email)) {
+    throw new Error("Please use a valid college email address to register as a student.");
+  }
+
+  // Validate faculty ID for teachers
+  if (role === "teacher" && !validateFacultyId(profileData.facultyId || "")) {
+    throw new Error("Please provide a valid Faculty ID to register as a teacher.");
+  }
+
+  // Validate admin secret code
+  if (role === "admin") {
+    if (!validateAdminCode(profileData.adminSecretCode || "")) {
+      throw new Error("Invalid admin authorization code. Contact the system administrator.");
+    }
+    if (!profileData.designation) {
+      throw new Error("Please select your designation to register as admin.");
+    }
+  }
+
   const credential = await createUserWithEmailAndPassword(auth, email, password);
   const user = credential.user;
 
-  // Create user document
+  // Create user document in 'users' collection
   await setDoc(doc(db, "users", user.uid), {
     uid: user.uid,
     role,
@@ -96,11 +140,18 @@ export async function signUp(
     createdAt: serverTimestamp(),
   });
 
-  // Create role-specific document
+  // Create role-specific document with COMPLETE profile data
   const roleCollection =
     role === "student" ? "students" : role === "teacher" ? "teachers" : "admins";
 
-  const roleData: Record<string, any> = { uid: user.uid };
+  const commonData = {
+    uid: user.uid,
+    fullName: profileData.fullName,
+    email,
+    createdAt: serverTimestamp(),
+  };
+
+  let roleData: Record<string, any> = { ...commonData };
 
   if (role === "student") {
     roleData.rollNumber = profileData.rollNumber || "";
@@ -116,6 +167,7 @@ export async function signUp(
   } else {
     roleData.adminId = profileData.adminId || "";
     roleData.department = profileData.department || "";
+    roleData.designation = profileData.designation || "";
   }
 
   await setDoc(doc(db, roleCollection, user.uid), roleData);

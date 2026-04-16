@@ -19,12 +19,6 @@ const roles = [
     description: "Create assignments, review submissions & grade work",
     icon: BookOpen,
   },
-  {
-    id: "admin" as UserRole,
-    title: "Admin",
-    description: "Manage users, subjects & monitor system activity",
-    icon: Shield,
-  },
 ];
 
 export function SplashScreen({ onComplete }: { onComplete: (role: UserRole) => void }) {
@@ -119,7 +113,7 @@ export function SplashScreen({ onComplete }: { onComplete: (role: UserRole) => v
               </p>
             </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 w-full max-w-3xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-2xl">
               {roles.map((role, i) => (
                 <motion.button
                   key={role.id}

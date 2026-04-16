@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, Mail, Lock, User, ArrowLeft, Eye, EyeOff, Hash, Building, AlertCircle } from "lucide-react";
+import { BookOpen, Mail, Lock, User, ArrowLeft, Eye, EyeOff, Hash, Building, AlertCircle, Shield, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { firebaseConfigMessage, isFirebaseConfigured } from "@/firebase/config";
-import { getFirebaseAuthErrorMessage } from "@/firebase/authService";
+import { getFirebaseAuthErrorMessage, validateCollegeEmail, validateFacultyId } from "@/firebase/authService";
 
 type UserRole = "student" | "teacher" | "admin";
 
@@ -47,7 +47,7 @@ function SignupPage() {
   const [form, setForm] = useState({
     fullName: "", email: "", password: "", department: "",
     rollNumber: "", prn: "", year: "", semester: "", division: "",
-    facultyId: "", adminId: "",
+    facultyId: "", adminId: "", adminSecretCode: "", designation: "",
   });
 
   const updateForm = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -57,7 +57,31 @@ function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Client-side validations
     if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
+
+    if (role === "student" && !validateCollegeEmail(form.email)) {
+      setError("Please use a valid college email address (e.g., yourname@college.edu.in).");
+      return;
+    }
+
+    if (role === "teacher" && !validateFacultyId(form.facultyId)) {
+      setError("Please provide a valid Faculty ID (e.g., FAC-2024-001).");
+      return;
+    }
+
+    if (role === "admin") {
+      if (!form.adminSecretCode.trim()) {
+        setError("Admin authorization code is required.");
+        return;
+      }
+      if (!form.designation) {
+        setError("Please select your designation.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       await signup(form.email, form.password, role, form);
@@ -97,7 +121,10 @@ function SignupPage() {
 
           <form onSubmit={handleSignup} className="space-y-3">
             <InputField icon={User} label="Full Name" placeholder="John Doe" value={form.fullName} onChange={(v) => updateForm("fullName", v)} />
-            <InputField icon={Mail} label="Email" type="email" placeholder="you@example.com" value={form.email} onChange={(v) => updateForm("email", v)} />
+            <InputField icon={Mail} label={role === "student" ? "College Email" : "Email"} type="email" placeholder={role === "student" ? "yourname@college.edu.in" : "you@example.com"} value={form.email} onChange={(v) => updateForm("email", v)} />
+            {role === "student" && (
+              <p className="text-xs text-muted-foreground -mt-1 ml-1">Use your college email address to register</p>
+            )}
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
               <div className="relative">
@@ -140,8 +167,40 @@ function SignupPage() {
               </>
             )}
 
-            {role === "teacher" && <InputField icon={Hash} label="Faculty ID" placeholder="FAC-2024-001" value={form.facultyId} onChange={(v) => updateForm("facultyId", v)} />}
-            {role === "admin" && <InputField icon={Hash} label="Admin ID" placeholder="ADM-001" value={form.adminId} onChange={(v) => updateForm("adminId", v)} />}
+            {role === "teacher" && (
+              <>
+                <InputField icon={Hash} label="Faculty ID" placeholder="FAC-2024-001" value={form.facultyId} onChange={(v) => updateForm("facultyId", v)} />
+                <p className="text-xs text-muted-foreground -mt-1 ml-1">Enter your official faculty ID for verification</p>
+              </>
+            )}
+
+            {role === "admin" && (
+              <>
+                <InputField icon={Hash} label="Admin ID" placeholder="ADM-001" value={form.adminId} onChange={(v) => updateForm("adminId", v)} />
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Designation</label>
+                  <div className="relative">
+                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <select value={form.designation} onChange={(e) => updateForm("designation", e.target.value)} required className="w-full h-11 pl-10 pr-4 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all">
+                      <option value="">Select Designation</option>
+                      <option value="HOD">Head of Department (HOD)</option>
+                      <option value="Principal">Principal</option>
+                      <option value="Dean">Dean</option>
+                      <option value="Vice Principal">Vice Principal</option>
+                      <option value="Registrar">Registrar</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Authorization Code</label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input type="password" value={form.adminSecretCode} onChange={(e) => updateForm("adminSecretCode", e.target.value)} placeholder="Enter admin secret code" required className="w-full h-11 pl-10 pr-4 rounded-xl border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-all" />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 ml-1">Contact the system administrator for the authorization code</p>
+                </div>
+              </>
+            )}
 
             <div className="pt-2">
               <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>

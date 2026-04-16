@@ -10,7 +10,9 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  onSnapshot,
   Timestamp,
+  type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./config";
 
@@ -146,13 +148,11 @@ export async function createLateRequest(data: Omit<LateRequest, "id" | "createdA
 }
 
 export async function getLateRequestsByTeacher(teacherUid: string): Promise<LateRequest[]> {
-  // Get teacher's assignments first, then their late requests
   const assignments = await getAssignmentsByTeacher(teacherUid);
   const assignmentIds = assignments.map((a) => a.id).filter(Boolean);
   if (assignmentIds.length === 0) return [];
 
   const allRequests: LateRequest[] = [];
-  // Firestore 'in' supports max 30 items
   const chunks = [];
   for (let i = 0; i < assignmentIds.length; i += 30) {
     chunks.push(assignmentIds.slice(i, i + 30));
@@ -183,7 +183,7 @@ export async function updateLateRequest(id: string, data: Partial<LateRequest>):
   await updateDoc(doc(db, "lateRequests", id), data);
 }
 
-// ---- Users ----
+// ---- Users (one-time fetch) ----
 
 export async function getAllStudents() {
   const snapshot = await getDocs(collection(db, "students"));
@@ -207,4 +207,40 @@ export async function getAllTeachers() {
     teachers.push({ id: d.id, ...userData, ...teacherData });
   }
   return teachers;
+}
+
+// ---- Real-time listeners (auto-refresh within ~2 seconds) ----
+
+export function onStudentsChange(callback: (students: any[]) => void): Unsubscribe {
+  return onSnapshot(collection(db, "students"), async (snapshot) => {
+    const students = [];
+    for (const d of snapshot.docs) {
+      const studentData = d.data();
+      if (!studentData.fullName) {
+        const userDoc = await getDoc(doc(db, "users", d.id));
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        students.push({ id: d.id, ...userData, ...studentData });
+      } else {
+        students.push({ id: d.id, ...studentData });
+      }
+    }
+    callback(students);
+  });
+}
+
+export function onTeachersChange(callback: (teachers: any[]) => void): Unsubscribe {
+  return onSnapshot(collection(db, "teachers"), async (snapshot) => {
+    const teachers = [];
+    for (const d of snapshot.docs) {
+      const teacherData = d.data();
+      if (!teacherData.fullName) {
+        const userDoc = await getDoc(doc(db, "users", d.id));
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        teachers.push({ id: d.id, ...userData, ...teacherData });
+      } else {
+        teachers.push({ id: d.id, ...teacherData });
+      }
+    }
+    callback(teachers);
+  });
 }

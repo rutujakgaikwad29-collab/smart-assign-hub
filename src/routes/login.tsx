@@ -44,11 +44,18 @@ function LoginPage() {
     setLoading(true);
     try {
       const userRole = await login(email, password);
+
+      // ROLE-BASED ACCESS CONTROL: Prevent cross-role login
       if (userRole !== role) {
-        setError(`This account is registered as a ${userRole}, not a ${role}.`);
+        const roleLabel = roleLabels[userRole] || userRole;
+        const attemptedLabel = roleLabels[role] || role;
+        setError(
+          `Access denied. Your account is registered as "${roleLabel}" but you are trying to log in as "${attemptedLabel}". Please use the correct login portal.`
+        );
         setLoading(false);
         return;
       }
+
       navigate({ to: `/${userRole}/dashboard` as any });
     } catch (err: any) {
       setError(getFirebaseAuthErrorMessage(err, "Login failed. Please try again."));

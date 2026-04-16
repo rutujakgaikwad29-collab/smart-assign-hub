@@ -13,6 +13,7 @@ import {
   FileText,
   Filter,
   Flag,
+  GraduationCap,
   Mail,
   MoonStar,
   RefreshCcw,
@@ -27,6 +28,7 @@ import {
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
+import { onStudentsChange } from "@/firebase/firestoreService";
 
 export const Route = createFileRoute("/teacher/dashboard")({
   head: () => ({
@@ -78,6 +80,20 @@ function TeacherDashboard() {
   const [darkMode, setDarkMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [recentStudents, setRecentStudents] = useState<any[]>([]);
+
+  // Real-time student enrollment tracking
+  useEffect(() => {
+    const unsubscribe = onStudentsChange((students) => {
+      const sorted = [...students].sort((a, b) => {
+        const aTime = a.createdAt?.seconds || 0;
+        const bTime = b.createdAt?.seconds || 0;
+        return bTime - aTime;
+      });
+      setRecentStudents(sorted.slice(0, 6));
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("smartassign-theme");
@@ -437,6 +453,36 @@ function TeacherDashboard() {
               <div className="rounded-2xl border border-border bg-background p-4 text-sm leading-6 text-muted-foreground">
                 AI analysis is advisory only. Final decisions should use judgment, drafts, oral checks, and classroom context.
               </div>
+            </motion.section>
+
+            <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold font-[var(--font-heading)]">Recently Enrolled Students</h2>
+                  <p className="text-xs text-muted-foreground">Live updates • New enrollments appear automatically</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                  <GraduationCap className="h-5 w-5 text-info-foreground" />
+                </div>
+              </div>
+              {recentStudents.length === 0 ? (
+                <div className="text-center text-sm text-muted-foreground py-4">No students enrolled yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {recentStudents.map((student) => (
+                    <div key={student.id} className="flex items-center gap-3 rounded-2xl border border-border bg-background p-3 hover:bg-muted/30 transition-colors">
+                      <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
+                        {(student.fullName || "?").split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{student.fullName || "N/A"}</p>
+                        <p className="text-xs text-muted-foreground truncate">{student.department || "No dept"} • {student.rollNumber || "No roll"}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.section>
 
             <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
