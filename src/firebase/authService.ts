@@ -24,8 +24,10 @@ export interface UserProfile {
   role: UserRole;
   fullName: string;
   email: string;
+  department: string;
   createdAt: any;
 }
+
 
 export interface StudentProfile extends UserProfile {
   rollNumber: string;
@@ -197,12 +199,25 @@ export async function getUserRole(uid: string): Promise<UserRole | null> {
 }
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
+  const role = await getUserRole(uid);
+  if (!role) return null;
+
+  const roleCollection =
+    role === "student" ? "students" : role === "teacher" ? "teachers" : "admins";
+  
+  const profileSnap = await getDoc(doc(db, roleCollection, uid));
+  if (profileSnap.exists()) {
+    return { ...profileSnap.data(), role } as UserProfile;
+  }
+  
+  // Fallback to basic user doc if role doc fails
   const userDoc = await getDoc(doc(db, "users", uid));
   if (userDoc.exists()) {
     return userDoc.data() as UserProfile;
   }
   return null;
 }
+
 
 export function onAuthChanged(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback);

@@ -14156,6 +14156,21 @@ async function getEventManager(client) {
   eventManager.onLastRemoteStoreUnlisten = triggerRemoteStoreUnlisten.bind(null, onlineComponentProvider.syncEngine);
   return eventManager;
 }
+function firestoreClientListen(client, query2, options, observer) {
+  const wrappedObserver = new AsyncObserver(observer);
+  const listener = new QueryListener(query2, wrappedObserver, options);
+  client.asyncQueue.enqueueAndForget(async () => {
+    const eventManager = await getEventManager(client);
+    return eventManagerListen(eventManager, listener);
+  });
+  return () => {
+    wrappedObserver.mute();
+    client.asyncQueue.enqueueAndForget(async () => {
+      const eventManager = await getEventManager(client);
+      return eventManagerUnlisten(eventManager, listener);
+    });
+  };
+}
 function firestoreClientGetDocumentViaSnapshotListener(client, key, options = {}) {
   const deferred = new Deferred();
   client.asyncQueue.enqueueAndForget(async () => {
@@ -16572,6 +16587,21 @@ function resultChangeType(type) {
       return fail(61501, { type });
   }
 }
+function isPartialObserver(obj) {
+  return implementsAnyMethods(obj, ["next", "error", "complete"]);
+}
+function implementsAnyMethods(obj, methods) {
+  if (typeof obj !== "object" || obj === null) {
+    return false;
+  }
+  const object = obj;
+  for (const method of methods) {
+    if (method in object && typeof object[method] === "function") {
+      return true;
+    }
+  }
+  return false;
+}
 function getDoc(reference) {
   reference = cast(reference, DocumentReference);
   const firestore = cast(reference.firestore, Firestore);
@@ -16618,6 +16648,60 @@ function addDoc(reference, data) {
   const mutation = parsed.toMutation(docRef._key, Precondition.exists(false));
   return executeWrite(firestore, [mutation]).then(() => docRef);
 }
+function onSnapshot(reference, ...args) {
+  reference = getModularInstance(reference);
+  let options = {
+    includeMetadataChanges: false,
+    source: "default"
+  };
+  let currArg = 0;
+  if (typeof args[currArg] === "object" && !isPartialObserver(args[currArg])) {
+    options = args[currArg++];
+  }
+  const internalOptions = {
+    includeMetadataChanges: options.includeMetadataChanges,
+    source: options.source
+  };
+  if (isPartialObserver(args[currArg])) {
+    const userObserver = args[currArg];
+    args[currArg] = userObserver.next?.bind(userObserver);
+    args[currArg + 1] = userObserver.error?.bind(userObserver);
+    args[currArg + 2] = userObserver.complete?.bind(userObserver);
+  }
+  let observer;
+  let firestore;
+  let internalQuery;
+  if (reference instanceof DocumentReference) {
+    firestore = cast(reference.firestore, Firestore);
+    internalQuery = newQueryForPath(reference._key.path);
+    observer = {
+      next: (snapshot) => {
+        if (args[currArg]) {
+          args[currArg](convertToDocSnapshot(firestore, reference, snapshot));
+        }
+      },
+      error: args[currArg + 1],
+      complete: args[currArg + 2]
+    };
+  } else {
+    const query2 = cast(reference, Query);
+    firestore = cast(query2.firestore, Firestore);
+    internalQuery = query2._query;
+    const userDataWriter = new ExpUserDataWriter(firestore);
+    observer = {
+      next: (snapshot) => {
+        if (args[currArg]) {
+          args[currArg](new QuerySnapshot(firestore, userDataWriter, query2, snapshot));
+        }
+      },
+      error: args[currArg + 1],
+      complete: args[currArg + 2]
+    };
+    validateHasExplicitOrderByForLimitToLast(reference._query);
+  }
+  const client = ensureFirestoreConfigured(firestore);
+  return firestoreClientListen(client, internalQuery, internalOptions, observer);
+}
 function executeWrite(firestore, mutations) {
   const client = ensureFirestoreConfigured(firestore);
   return firestoreClientWrite(client, mutations);
@@ -16634,10 +16718,11 @@ export {
   serverTimestamp as b,
   collection as c,
   doc as d,
-  getDocs as e,
-  addDoc as f,
+  orderBy as e,
+  getDocs as f,
   getFirestore as g,
-  orderBy as o,
+  addDoc as h,
+  onSnapshot as o,
   query as q,
   setDoc as s,
   updateDoc as u,
