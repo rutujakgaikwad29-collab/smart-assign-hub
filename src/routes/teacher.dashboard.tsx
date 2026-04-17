@@ -29,6 +29,9 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { onStudentsChange } from "@/firebase/firestoreService";
+import { detectAIContent } from "@/services/aiDetectionService";
+import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/teacher/dashboard")({
   head: () => ({
@@ -56,13 +59,14 @@ type ReviewRow = {
   email: string;
 };
 
-const rows: ReviewRow[] = [
+const initialRows: ReviewRow[] = [
   { id: "1", student: "Rutuja Gaikwad", assignment: "DSA Lab 5", course: "CSE 2A", submittedOn: "Apr 16, 2026", score: 18, risk: "Low", action: "Accept", notes: "Consistent with class drafts and references.", email: "rutuja@example.edu" },
   { id: "2", student: "Aarav Patil", assignment: "DBMS Mini Project", course: "CSE 2B", submittedOn: "Apr 16, 2026", score: 66, risk: "High", action: "Viva", notes: "Highly polished, abrupt tone shifts, weak draft trail.", email: "aarav@example.edu" },
   { id: "3", student: "Sneha Desai", assignment: "OS Scheduling Notes", course: "CSE 1A", submittedOn: "Apr 15, 2026", score: 42, risk: "Medium", action: "Resubmit", notes: "Looks generic in several sections.", email: "sneha@example.edu" },
   { id: "4", student: "Neha Kulkarni", assignment: "Web Dev Portfolio", course: "CSE 2A", submittedOn: "Apr 15, 2026", score: 24, risk: "Low", action: "Accept", notes: "Personal examples and edits are visible.", email: "neha@example.edu" },
   { id: "5", student: "Ayush Chavan", assignment: "ML Quiz", course: "CSE 3A", submittedOn: "Apr 14, 2026", score: 79, risk: "High", action: "Flag", notes: "Answers mirror public AI phrasing.", email: "ayush@example.edu" },
 ];
+
 
 const alerts = [
   { title: "2 high-risk submissions need attention", body: "Start with viva or clarification.", tone: "high" as const },
@@ -81,6 +85,32 @@ function TeacherDashboard() {
   const [selected, setSelected] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [recentStudents, setRecentStudents] = useState<any[]>([]);
+  const [dataRows, setDataRows] = useState<ReviewRow[]>(initialRows);
+  const [scanningIds, setScanningIds] = useState<Record<string, boolean>>({});
+
+  const handleAIScan = async (row: ReviewRow) => {
+    setScanningIds(prev => ({ ...prev, [row.id]: true }));
+    try {
+      // In a real app, we would fetch the full text from the submission file/storage
+      // For this demo, we use the 'notes' field as the text to analyze
+      const result = await detectAIContent(row.notes);
+      
+      setDataRows(current => 
+        current.map(r => 
+          r.id === row.id 
+            ? { ...r, score: result.score, risk: result.risk } 
+            : r
+        )
+      );
+      
+      toast.success(`Scan complete for ${row.student}: ${result.score}% AI likelihood.`);
+    } catch (error) {
+      toast.error("AI detection failed. Please check your API key in .env");
+    } finally {
+      setScanningIds(prev => ({ ...prev, [row.id]: false }));
+    }
+  };
+
 
   // Real-time student enrollment tracking
   useEffect(() => {
@@ -107,7 +137,7 @@ function TeacherDashboard() {
     document.documentElement.classList.toggle("dark", darkMode);
   }, [darkMode]);
 
-  const filtered = rows.filter((row) => {
+  const filtered = dataRows.filter((row) => {
     const matchesSearch =
       row.student.toLowerCase().includes(search.toLowerCase()) ||
       row.assignment.toLowerCase().includes(search.toLowerCase()) ||
@@ -119,13 +149,14 @@ function TeacherDashboard() {
     return matchesSearch && matchesCourse && matchesRisk && matchesDate;
   });
 
-  const lowRiskIds = rows.filter((row) => row.risk === "Low").map((row) => row.id);
+  const lowRiskIds = dataRows.filter((row) => row.risk === "Low").map((row) => row.id);
   const stats = {
-    assignments: rows.length,
-    highRisk: rows.filter((row) => row.risk === "High").length,
+    assignments: dataRows.length,
+    highRisk: dataRows.filter((row) => row.risk === "High").length,
     late: 1,
-    average: Math.round(rows.reduce((sum, row) => sum + row.score, 0) / rows.length),
+    average: Math.round(dataRows.reduce((sum, row) => sum + row.score, 0) / dataRows.length),
   };
+
 
   const csvExport = () => {
     const data = [
@@ -326,6 +357,15 @@ function TeacherDashboard() {
                             <h3 className="truncate text-base font-semibold font-[var(--font-heading)]">{row.student}</h3>
                             <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${riskBadge(row.risk)}`}>{row.risk} risk</span>
                             <span className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">{row.course}</span>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 ml-auto" 
+                              onClick={() => handleAIScan(row)}
+                              disabled={scanningIds[row.id]}
+                            >
+                              <RefreshCcw className={`h-3 w-3 ${scanningIds[row.id] ? "animate-spin" : ""}`} />
+                            </Button>
                           </div>
                           <p className="mt-1 text-sm text-muted-foreground">
                             {row.assignment} · Submitted {row.submittedOn}
@@ -338,8 +378,11 @@ function TeacherDashboard() {
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="text-xs uppercase tracking-wide text-muted-foreground">AI Suspicion Score</p>
-                            <p className="text-2xl font-bold font-[var(--font-heading)]">{row.score}%</p>
+                            <p className="text-2xl font-bold font-[var(--font-heading)]">
+                              {scanningIds[row.id] ? "..." : `${row.score}%`}
+                            </p>
                           </div>
+
                           <div className={`flex h-14 w-14 items-center justify-center rounded-full border ${riskBadge(row.risk)}`} title="Score indicates likelihood of AI-generated content. Use judgment before finalizing.">
                             <span className="text-xs font-semibold">{row.score}%</span>
                           </div>
