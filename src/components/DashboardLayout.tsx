@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -56,9 +56,18 @@ export function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, logout } = useAuth();
+  const { profile, role: userRole, loading: authLoading, logout } = useAuth();
   const items = navItems[role];
   const roleInfo = roleLabels[role];
+
+  // REAL-TIME ROLE PROTECTION: 
+  // If user tries to access a dashboard that doesn't match their role, kick them out.
+  useEffect(() => {
+    if (!authLoading && userRole && userRole !== role) {
+      console.warn(`Access Denied: User is ${userRole}, but tried to access ${role} portal.`);
+      navigate({ to: `/${userRole}/dashboard` as any });
+    }
+  }, [userRole, authLoading, role]);
 
   const handleLogout = async () => {
     await logout();
@@ -200,7 +209,14 @@ export function DashboardLayout({
           >
             <Menu className="w-5 h-5 text-foreground" />
           </button>
-          <div className="flex-1" />
+          <div className="flex-1 flex items-center">
+            {role === "admin" && (
+               <div className="flex items-center gap-2 px-3 py-1 bg-accent/10 border border-accent/20 rounded-full">
+                 <Shield className="w-3.5 h-3.5 text-accent" />
+                 <span className="text-[10px] font-bold text-accent uppercase tracking-wider">{(profile as any)?.designation || "Admin"}</span>
+               </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => navigate({ to: notificationPath as any })}

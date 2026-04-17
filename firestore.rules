@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    function isTeacher() {
+      return isAuthenticated() && getUserData().role == 'teacher';
+    }
+    
+    function isStudent() {
+      return isAuthenticated() && getUserData().role == 'student';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      allow read: if isAuthenticated(); // Needed to check roles for rules
+      allow create: if isAuthenticated(); // Initially created on signup
+      allow update, delete: if isOwner(userId) || isAdmin();
+    }
+
+    // --- Students Collection ---
+    match /students/{studentId} {
+      // Admins and Teachers need to see students for management and enrollment tracking
+      allow read: if isAdmin() || isTeacher() || isOwner(studentId);
+      allow create: if isAuthenticated(); 
+      allow update, delete: if isOwner(studentId) || isAdmin();
+    }
+
+    // --- Teachers Collection ---
+    match /teachers/{teacherId} {
+      // Admins need to see teachers; Students might need to see teacher names for assignments
+      allow read: if isAdmin() || isTeacher() || isStudent();
+      allow create: if isAuthenticated();
+      allow update, delete: if isOwner(teacherId) || isAdmin();
+    }
+    
+    // --- Admins Collection ---
+    match /admins/{adminId} {
+      allow read: if isAdmin() || isOwner(adminId);
+      allow create: if isAuthenticated();
+      allow update, delete: if isOwner(adminId) || isAdmin();
+    }
+
+    // --- Assignments Collection ---
+    match /assignments/{assignmentId} {
+      allow read: if isAuthenticated(); // All roles can see assignments
+      allow create: if isTeacher() || isAdmin();
+      allow update, delete: if isAdmin() || (isTeacher() && resource.data.teacherUid == request.auth.uid);
+    }
+
+    // --- Submissions Collection ---
+    match /submissions/{submissionId} {
+      // Teachers read all submissions; Students read their own
+      allow read: if isTeacher() || isAdmin() || (isStudent() && resource.data.studentUid == request.auth.uid);
+      allow create: if isStudent();
+      allow update: if isTeacher() || isAdmin() || (isStudent() && resource.data.studentUid == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // --- Late Requests Collection ---
+    match /lateRequests/{requestId} {
+      allow read: if isTeacher() || isAdmin() || (isStudent() && resource.data.studentUid == request.auth.uid);
+      allow create: if isStudent();
+      allow update: if isTeacher() || isAdmin() || (isStudent() && resource.data.studentUid == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+  }
+}

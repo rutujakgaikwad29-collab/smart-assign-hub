@@ -157,6 +157,19 @@ export function SplashScreen({ onComplete }: { onComplete: (role: UserRole) => v
                 Continue as {selectedRole ? roles.find(r => r.id === selectedRole)?.title : "..."}
               </Button>
             </motion.div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2"
+            >
+              <button 
+                onClick={() => onComplete("admin")}
+                className="text-[10px] uppercase tracking-widest text-primary-foreground/40 hover:text-primary-foreground hover:opacity-100 transition-all flex items-center gap-1.5 font-medium"
+              >
+                <Shield className="w-3 h-3" />
+                System Administration
+              </button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
