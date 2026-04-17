@@ -543,12 +543,13 @@ function TeacherDashboard() {
                 </div>
                 <div className="flex items-center justify-between rounded-2xl border border-border bg-background p-3">
                   <span>Viva recommendations</span>
-                  <span className="font-semibold">{rows.filter((row) => row.action === "Viva").length}</span>
+                  <span className="font-semibold">{dataRows.filter((row) => row.action === "Viva").length}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-2xl border border-border bg-background p-3">
                   <span>Clarifications needed</span>
-                  <span className="font-semibold">{rows.filter((row) => row.risk !== "Low").length}</span>
+                  <span className="font-semibold">{dataRows.filter((row) => row.risk !== "Low").length}</span>
                 </div>
+
               </div>
             </motion.section>
           </div>

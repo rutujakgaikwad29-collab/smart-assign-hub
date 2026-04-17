@@ -68,7 +68,7 @@ export async function detectAIContent(text: string): Promise<GPTZeroResult> {
  */
 async function simulateDetection(text: string): Promise<GPTZeroResult> {
   // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
   
   // Basic heuristic: check for common AI phrases (very simplified)
   const aiMarkers = ["as an ai language model", "furthermore", "in conclusion", "it is important to note"];

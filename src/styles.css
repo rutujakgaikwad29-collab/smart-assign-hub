@@ -1,7 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -115,7 +114,12 @@
     font-family: var(--font-body);
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-heading);
   }
 }
@@ -124,17 +128,21 @@
   .gradient-primary {
     background: linear-gradient(135deg, oklch(0.30 0.07 240), oklch(0.45 0.10 220));
   }
+
   .gradient-accent {
     background: linear-gradient(135deg, oklch(0.45 0.10 220), oklch(0.55 0.12 200));
   }
+
   .gradient-hero {
     background: linear-gradient(135deg, oklch(0.20 0.05 240), oklch(0.35 0.09 220), oklch(0.55 0.12 200));
   }
+
   .glass-card {
     background: oklch(1 0 0 / 80%);
     backdrop-filter: blur(12px);
     border: 1px solid oklch(0.90 0.015 240 / 60%);
   }
+
   .text-gradient {
     background: linear-gradient(135deg, oklch(0.30 0.07 240), oklch(0.55 0.12 200));
     -webkit-background-clip: text;
