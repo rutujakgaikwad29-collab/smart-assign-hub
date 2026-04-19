@@ -65,13 +65,20 @@ export async function getAssignments(): Promise<Assignment[]> {
 }
 
 export async function getAssignmentsByTeacher(teacherUid: string): Promise<Assignment[]> {
+  // Using only where() without orderBy() to avoid requiring a composite index.
+  // Sorting is done client-side instead.
   const q = query(
     collection(db, "assignments"),
-    where("teacherUid", "==", teacherUid),
-    orderBy("createdAt", "desc")
+    where("teacherUid", "==", teacherUid)
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Assignment));
+  const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Assignment));
+  // Sort client-side: newest first
+  return results.sort((a, b) => {
+    const aTime = a.createdAt?.seconds || 0;
+    const bTime = b.createdAt?.seconds || 0;
+    return bTime - aTime;
+  });
 }
 
 export async function getAssignment(id: string): Promise<Assignment | null> {
@@ -112,11 +119,15 @@ export async function getSubmissionsByAssignment(assignmentId: string): Promise<
 export async function getSubmissionsByStudent(studentUid: string): Promise<Submission[]> {
   const q = query(
     collection(db, "submissions"),
-    where("studentUid", "==", studentUid),
-    orderBy("submittedAt", "desc")
+    where("studentUid", "==", studentUid)
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Submission));
+  const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Submission));
+  return results.sort((a, b) => {
+    const aTime = a.submittedAt?.seconds || 0;
+    const bTime = b.submittedAt?.seconds || 0;
+    return bTime - aTime;
+  });
 }
 
 export async function getSubmission(assignmentId: string, studentUid: string): Promise<Submission | null> {

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { getAssignmentsByTeacher, createAssignment, getSubmissionsByAssignment, type Assignment } from "@/firebase/firestoreService";
 import { Timestamp } from "firebase/firestore";
+import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/teacher/assignments")({
   head: () => ({ meta: [{ title: "Manage Assignments — SmartAssign Pro" }] }),
@@ -47,23 +49,33 @@ function TeacherAssignments() {
     if (!user) return;
     setCreating(true);
     try {
+      if (!user?.uid) throw new Error("User session expired. Please log in again.");
+      
       const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + parseInt(form.dueDays || "5"));
+      dueDate.setDate(dueDate.getDate() + (parseInt(form.dueDays) || 5));
+      
+      console.log("Creating assignment for:", user.uid);
+      
       await createAssignment({
         teacherUid: user.uid,
-        title: form.title,
-        subject: form.subject,
-        description: form.description,
+        title: form.title || "Untitled Assignment",
+        subject: form.subject || "General",
+        description: form.description || "",
         maxMarks: parseInt(form.maxMarks) || 20,
         dueDate: Timestamp.fromDate(dueDate),
         allowLateRequest: true,
       });
+      
       setShowCreate(false);
       setForm({ title: "", subject: "", description: "", maxMarks: "20", dueDays: "5" });
       setLoading(true);
+      
+      // Force immediate re-fetch
       await fetchAssignments();
+      toast.success("Assignment created and synchronized!");
     } catch (err: any) {
-      alert(err.message || "Failed to create assignment.");
+      console.error("Assignment creation error:", err);
+      toast.error(`Creation failed: ${err.message || "Unknown error"}`);
     } finally {
       setCreating(false);
     }

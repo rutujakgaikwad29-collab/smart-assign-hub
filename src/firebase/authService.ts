@@ -139,8 +139,10 @@ export async function signUp(
     role,
     fullName: profileData.fullName,
     email,
+    department: profileData.department || "",
     createdAt: serverTimestamp(),
   });
+
 
   // Create role-specific document with COMPLETE profile data
   const roleCollection =
