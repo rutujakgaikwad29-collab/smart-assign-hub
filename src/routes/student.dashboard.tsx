@@ -5,7 +5,9 @@ import { FileText, Upload, Clock, AlertTriangle, Calendar } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, StatusBadge, ProgressBar } from "@/components/DashboardWidgets";
 import { useAuth } from "@/context/AuthContext";
-import { getAssignments, getSubmissionsByStudent, type Assignment, type Submission } from "@/firebase/firestoreService";
+import { getAssignments, getSubmissionsByStudent, createSubmission, type Assignment, type Submission } from "@/firebase/firestoreService";
+import { toast } from "sonner";
+import { ChevronDown, ChevronUp, Link as LinkIcon } from "lucide-react";
 
 export const Route = createFileRoute("/student/dashboard")({
   head: () => ({
@@ -22,6 +24,9 @@ function StudentDashboard() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [submissionText, setSubmissionText] = useState("");
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -63,6 +68,38 @@ function StudentDashboard() {
     return Math.ceil((due.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
+  const handleSubmit = async (a: Assignment) => {
+    if (!user) return;
+    if (!submissionText.trim()) {
+      toast.error("Please enter some text or link for submission");
+      return;
+    }
+    setSubmittingId(a.id || null);
+    try {
+      await createSubmission({
+        assignmentId: a.id!,
+        studentUid: user.uid,
+        fileUrl: submissionText, // Using text for now as per "writing options"
+        status: "submitted",
+        marks: null,
+        feedback: "",
+      });
+      toast.success("Assignment submitted successfully!");
+      setSubmissionText("");
+      setExpandedId(null);
+      // Refresh submissions
+      const mySubmissions = await getSubmissionsByStudent(user.uid);
+      setSubmissions(mySubmissions);
+    } catch (err: any) {
+      toast.error(`Submission failed: ${err.message}`);
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
+  // Group by subject
+  const subjects = Array.from(new Set(assignments.map(a => a.subject)));
+
   return (
     <DashboardLayout role="student">
       <div className="space-y-6">
@@ -90,52 +127,108 @@ function StudentDashboard() {
           <ProgressBar value={completionPct} label="Overall Completion" />
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden"
-        >
-          <div className="p-5 border-b border-border flex items-center justify-between">
-            <h2 className="text-lg font-semibold font-[var(--font-heading)]">Recent Assignments</h2>
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-          </div>
-          {loading ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">Loading assignments...</div>
-          ) : assignments.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">No assignments yet. Check back soon!</div>
-          ) : (
-            <div className="divide-y divide-border">
-              {assignments.slice(0, 5).map((a) => {
-                const status = getStatus(a);
-                const daysLeft = getDaysLeft(a);
-                const sub = submissions.find((s) => s.assignmentId === a.id);
-                return (
-                  <div key={a.id} className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors">
-                    <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                      <FileText className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-card-foreground truncate">{a.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {a.subject} · Due: {a.dueDate?.toDate?.()?.toLocaleDateString() || "N/A"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {sub?.marks !== null && sub?.marks !== undefined && (
-                        <span className="text-xs font-medium text-success">{sub.marks}/{a.maxMarks}</span>
-                      )}
-                      {daysLeft > 0 && status === "Pending" && (
-                        <span className={`text-xs font-medium ${daysLeft <= 2 ? "text-destructive" : "text-warning-foreground"}`}>{daysLeft}d left</span>
-                      )}
-                      <StatusBadge status={status} />
-                    </div>
+        <div className="space-y-6">
+          {subjects.map(subject => {
+            const subjectAssignments = assignments.filter(a => a.subject === subject);
+            const pendingInSubject = subjectAssignments.filter(a => getStatus(a) === "Pending").length;
+            
+            return (
+              <motion.div
+                key={subject}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden"
+              >
+                <div className="p-5 border-b border-border flex items-center justify-between bg-muted/10">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold font-[var(--font-heading)]">{subject}</h2>
+                    {pendingInSubject > 0 && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" title={`${pendingInSubject} new/pending tasks`} />
+                    )}
                   </div>
-                );
-              })}
-            </div>
+                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div className="divide-y divide-border">
+                  {subjectAssignments.map((a) => {
+                    const status = getStatus(a);
+                    const daysLeft = getDaysLeft(a);
+                    const sub = submissions.find((s) => s.assignmentId === a.id);
+                    const isExpanded = expandedId === a.id;
+                    return (
+                      <div key={a.id} className="flex flex-col">
+                        <div className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : a.id || null)}>
+                          <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0 relative">
+                            <FileText className="w-5 h-5 text-muted-foreground" />
+                            {status === "Pending" && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary border-2 border-card" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-card-foreground truncate">{a.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Due: {a.dueDate?.toDate?.()?.toLocaleDateString() || "N/A"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            {sub?.marks !== null && sub?.marks !== undefined && (
+                              <span className="text-xs font-medium text-success">{sub.marks}/{a.maxMarks}</span>
+                            )}
+                            {daysLeft > 0 && status === "Pending" && (
+                              <span className={`text-xs font-medium ${daysLeft <= 2 ? "text-destructive" : "text-warning-foreground"}`}>{daysLeft}d left</span>
+                            )}
+                            <StatusBadge status={status} />
+                            <button className="text-muted-foreground hover:text-foreground">
+                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="p-5 bg-muted/10 border-t border-border">
+                            <h4 className="text-sm font-medium mb-2">Description</h4>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-4">{a.description || "No description provided."}</p>
+                            {a.attachmentUrl && (
+                              <a href={a.attachmentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium mb-4">
+                                <LinkIcon className="w-4 h-4" /> View Teacher's Attachment
+                              </a>
+                            )}
+                            
+                            {status === "Pending" && (
+                              <div className="mt-4 space-y-3">
+                                <label className="text-sm font-medium block">Your Submission (Write here or paste a link)</label>
+                                <textarea
+                                  value={submissionText}
+                                  onChange={(e) => setSubmissionText(e.target.value)}
+                                  placeholder="Write your answer or paste a Google Drive/Doc link here..."
+                                  className="w-full h-24 p-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                                />
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleSubmit(a); }}
+                                  disabled={submittingId === a.id}
+                                  className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                                >
+                                  {submittingId === a.id ? "Submitting..." : "Submit Assignment"}
+                                </button>
+                              </div>
+                            )}
+                            
+                            {sub && (
+                              <div className="mt-4 p-4 bg-background rounded-xl border border-border">
+                                <h4 className="text-sm font-medium text-success mb-1">Already Submitted</h4>
+                                <p className="text-sm text-muted-foreground">Status: {sub.status}</p>
+                                {sub.feedback && <p className="text-sm text-muted-foreground mt-2">Feedback: {sub.feedback}</p>}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            );
+          })}
+          {assignments.length === 0 && !loading && (
+            <div className="p-8 text-center text-muted-foreground text-sm bg-card rounded-2xl border border-border">No assignments yet. Check back soon!</div>
           )}
-        </motion.div>
+        </div>
       </div>
     </DashboardLayout>
   );

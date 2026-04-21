@@ -9,6 +9,9 @@ import { useAuth } from "@/context/AuthContext";
 import { getAssignmentsByTeacher, createAssignment, getSubmissionsByAssignment, type Assignment } from "@/firebase/firestoreService";
 import { Timestamp } from "firebase/firestore";
 import { toast } from "sonner";
+import { ChevronDown, ChevronUp, Link as LinkIcon } from "lucide-react";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "@/firebase/config";
 
 
 export const Route = createFileRoute("/teacher/assignments")({
@@ -22,7 +25,9 @@ function TeacherAssignments() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", subject: "", description: "", maxMarks: "20", dueDays: "5" });
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   const fetchAssignments = async () => {
     if (!user) return;
@@ -54,6 +59,13 @@ function TeacherAssignments() {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + (parseInt(form.dueDays) || 5));
       
+      let attachmentUrl = "";
+      if (attachmentFile) {
+        const fileRef = ref(storage, `assignments/${Date.now()}_${attachmentFile.name}`);
+        const snapshot = await uploadBytes(fileRef, attachmentFile);
+        attachmentUrl = await getDownloadURL(snapshot.ref);
+      }
+      
       console.log("Creating assignment for:", user.uid);
       
       await createAssignment({
@@ -64,10 +76,12 @@ function TeacherAssignments() {
         maxMarks: parseInt(form.maxMarks) || 20,
         dueDate: Timestamp.fromDate(dueDate),
         allowLateRequest: true,
+        attachmentUrl: attachmentUrl || undefined,
       });
       
       setShowCreate(false);
       setForm({ title: "", subject: "", description: "", maxMarks: "20", dueDays: "5" });
+      setAttachmentFile(null);
       setLoading(true);
       
       // Force immediate re-fetch
@@ -116,6 +130,10 @@ function TeacherAssignments() {
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Assignment details..." className="w-full h-20 p-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
               </div>
               <div>
+                <label className="text-sm font-medium block mb-1">Attachment (Optional)</label>
+                <input type="file" onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)} className="w-full h-10 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              </div>
+              <div>
                 <label className="text-sm font-medium block mb-1">Deadline (days from now)</label>
                 <input type="number" min="1" max="30" value={form.dueDays} onChange={(e) => setForm({ ...form, dueDays: e.target.value })} className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
@@ -136,8 +154,8 @@ function TeacherAssignments() {
               const due = a.dueDate?.toDate?.() || new Date();
               const isActive = due > new Date();
               return (
-                <motion.div key={a.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} className="bg-card rounded-2xl p-5 shadow-sm border border-border hover:shadow-md transition-shadow">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <motion.div key={a.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden hover:shadow-md transition-shadow">
+                  <div className="p-5 flex flex-col sm:flex-row sm:items-center gap-4 cursor-pointer" onClick={() => setExpandedId(expandedId === a.id ? null : a.id || null)}>
                     <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shrink-0"><FileText className="w-6 h-6 text-primary-foreground" /></div>
                     <div className="flex-1">
                       <h3 className="font-semibold font-[var(--font-heading)]">{a.title}</h3>
@@ -146,8 +164,26 @@ function TeacherAssignments() {
                         <span className="flex items-center gap-1"><Users className="w-3 h-3" />{a.submissionCount || 0} submissions</span>
                       </div>
                     </div>
-                    <StatusBadge status={isActive ? "Pending" : "Locked"} />
+                    <div className="flex items-center gap-4">
+                      <StatusBadge status={isActive ? "Pending" : "Locked"} />
+                      <button className="text-muted-foreground hover:text-foreground">
+                        {expandedId === a.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </div>
+                  {expandedId === a.id && (
+                    <div className="px-5 pb-5 pt-2 border-t border-border bg-muted/20">
+                      <h4 className="font-medium text-sm mb-2">Description</h4>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{a.description || "No description provided."}</p>
+                      {a.attachmentUrl && (
+                        <div className="mt-4">
+                          <a href={a.attachmentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium">
+                            <LinkIcon className="w-4 h-4" /> View Attachment
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </motion.div>
               );
             })}

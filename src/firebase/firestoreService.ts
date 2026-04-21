@@ -26,6 +26,7 @@ export interface Assignment {
   dueDate: Timestamp;
   maxMarks: number;
   allowLateRequest: boolean;
+  attachmentUrl?: string;
 }
 
 export interface Submission {
