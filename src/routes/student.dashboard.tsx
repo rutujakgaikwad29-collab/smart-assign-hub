@@ -5,9 +5,10 @@ import { FileText, Upload, Clock, AlertTriangle, Calendar } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatCard, StatusBadge, ProgressBar } from "@/components/DashboardWidgets";
 import { useAuth } from "@/context/AuthContext";
-import { getAssignments, getSubmissionsByStudent, createSubmission, type Assignment, type Submission } from "@/firebase/firestoreService";
+import { getSubmissionsByStudent, createSubmission, onStudentAssignmentsChange, onStudentSubmissionsChange, type Assignment, type Submission } from "@/firebase/firestoreService";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, Link as LinkIcon } from "lucide-react";
+import { ChevronDown, ChevronUp, Link as LinkIcon, Paperclip } from "lucide-react";
+import { uploadAssignmentFile } from "@/firebase/storageService";
 
 export const Route = createFileRoute("/student/dashboard")({
   head: () => ({
@@ -26,26 +27,30 @@ function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [submissionText, setSubmissionText] = useState("");
+  const [submissionFile, setSubmissionFile] = useState<File | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchData() {
-      if (!user) return;
-      try {
-        const [allAssignments, mySubmissions] = await Promise.all([
-          getAssignments(),
-          getSubmissionsByStudent(user.uid),
-        ]);
-        setAssignments(allAssignments);
-        setSubmissions(mySubmissions);
-      } catch (err) {
-        console.error("Failed to fetch dashboard data:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [user]);
+    if (!user || !profile) return;
+    setLoading(true);
+    
+    const classIdWithBatch = profile.classId || "";
+    const classIdWithoutBatch = profile.classId ? profile.classId.replace(/-B\d$/, "") : "";
+
+    const unsubAssignments = onStudentAssignmentsChange(classIdWithBatch, classIdWithoutBatch, (allAssignments) => {
+      setAssignments(allAssignments);
+      setLoading(false);
+    });
+
+    const unsubSubmissions = onStudentSubmissionsChange(user.uid, (mySubmissions) => {
+      setSubmissions(mySubmissions);
+    });
+
+    return () => {
+      unsubAssignments();
+      unsubSubmissions();
+    };
+  }, [user, profile]);
 
   const submittedCount = submissions.filter((s) => s.status === "submitted" || s.status === "graded").length;
   const pendingCount = assignments.length - submittedCount;
@@ -68,28 +73,74 @@ function StudentDashboard() {
     return Math.ceil((due.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("Only image files (JPG, PNG) are supported. Please convert documents to images."));
+        return;
+      }
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.6));
+        };
+        img.onerror = () => reject(new Error("Failed to load image for compression."));
+      };
+      reader.onerror = () => reject(new Error("Failed to read file."));
+    });
+  };
+
   const handleSubmit = async (a: Assignment) => {
     if (!user) return;
-    if (!submissionText.trim()) {
-      toast.error("Please enter some text or link for submission");
+    if (!submissionFile && !submissionText.trim()) {
+      toast.error("Please upload a file or enter a link.");
       return;
     }
     setSubmittingId(a.id || null);
     try {
+      let fileUrl = submissionText;
+      if (submissionFile) {
+        // Compress the image and bypass Firebase Storage completely to avoid billing/CORS issues
+        fileUrl = await compressImage(submissionFile);
+      }
+
       await createSubmission({
         assignmentId: a.id!,
         studentUid: user.uid,
-        fileUrl: submissionText, // Using text for now as per "writing options"
+        fileUrl: fileUrl,
         status: "submitted",
         marks: null,
         feedback: "",
       });
       toast.success("Assignment submitted successfully!");
       setSubmissionText("");
+      setSubmissionFile(null);
       setExpandedId(null);
-      // Refresh submissions
-      const mySubmissions = await getSubmissionsByStudent(user.uid);
-      setSubmissions(mySubmissions);
     } catch (err: any) {
       toast.error(`Submission failed: ${err.message}`);
     } finally {
@@ -107,7 +158,11 @@ function StudentDashboard() {
           <h1 className="text-2xl font-bold text-foreground font-[var(--font-heading)]">
             Welcome back, {profile?.fullName || "Student"}!
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">Here's your assignment overview</p>
+          <p className="text-muted-foreground text-sm mt-1 flex items-center gap-2">
+            <span>Class: {profile?.year || "Unknown"} {profile?.division || ""}</span>
+            <span className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+            <span>Batch: {profile?.batch || "N/A"}</span>
+          </p>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -192,13 +247,34 @@ function StudentDashboard() {
                             
                             {status === "Pending" && (
                               <div className="mt-4 space-y-3">
-                                <label className="text-sm font-medium block">Your Submission (Write here or paste a link)</label>
+                                <label className="text-sm font-medium block">Your Submission (Upload a file or paste a link)</label>
                                 <textarea
                                   value={submissionText}
                                   onChange={(e) => setSubmissionText(e.target.value)}
                                   placeholder="Write your answer or paste a Google Drive/Doc link here..."
-                                  className="w-full h-24 p-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                                  className="w-full h-20 p-3 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none mb-2"
                                 />
+                                <div className="flex items-center gap-2 mb-4">
+                                  <label className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-xl border border-border cursor-pointer hover:bg-muted/80 transition-colors">
+                                    <Paperclip className="w-4 h-4 text-muted-foreground" />
+                                    <span className="text-sm font-medium text-muted-foreground">{submissionFile ? submissionFile.name : "Attach File (PDF, DOCX, JPG)"}</span>
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept=".pdf,.doc,.docx,.jpg,.jpeg"
+                                      onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
+                                    />
+                                  </label>
+                                  {submissionFile && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSubmissionFile(null)}
+                                      className="text-xs text-destructive hover:underline"
+                                    >
+                                      Remove
+                                    </button>
+                                  )}
+                                </div>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleSubmit(a); }}
                                   disabled={submittingId === a.id}

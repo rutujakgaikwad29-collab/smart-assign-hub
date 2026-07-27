@@ -2,18 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
-import { User, Mail, BookOpen, Phone, Edit, Check, AlertCircle } from "lucide-react";
+import { User, Mail, Shield, Phone, Edit, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { setupRecaptcha, sendPhoneVerificationCode, verifyPhoneCode } from "@/firebase/authService";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
 
-export const Route = createFileRoute("/student/profile")({
-  head: () => ({ meta: [{ title: "Student Profile — SmartAssign Pro" }] }),
-  component: StudentProfilePage,
+export const Route = createFileRoute("/admin/profile")({
+  head: () => ({ meta: [{ title: "Admin Profile — SmartAssign Pro" }] }),
+  component: AdminProfile,
 });
 
-function StudentProfilePage() {
+function AdminProfile() {
   const { profile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -26,6 +26,7 @@ function StudentProfilePage() {
     fullName: "",
     mobileNumber: "",
     department: "",
+    designation: "",
   });
 
   useEffect(() => {
@@ -34,9 +35,10 @@ function StudentProfilePage() {
         fullName: profile.fullName || "",
         mobileNumber: profile.mobileNumber || "",
         department: profile.department || "",
+        designation: (profile as any).designation || "",
       });
     }
-    setupRecaptcha("student-profile-recaptcha");
+    setupRecaptcha("profile-recaptcha-container");
   }, [profile]);
 
   const handleStartEdit = async () => {
@@ -80,10 +82,10 @@ function StudentProfilePage() {
     setError("");
     setLoading(true);
     try {
-      const studentRef = doc(db, "students", profile!.uid);
+      const adminRef = doc(db, "admins", profile!.uid);
       const userRef = doc(db, "users", profile!.uid);
 
-      await updateDoc(studentRef, editForm);
+      await updateDoc(adminRef, editForm);
       await updateDoc(userRef, {
         fullName: editForm.fullName,
         mobileNumber: editForm.mobileNumber,
@@ -92,6 +94,7 @@ function StudentProfilePage() {
 
       setIsEditing(false);
       setVerificationStep("idle");
+      // Optionally reload page to fetch fresh profile from context, or let onSnapshot handle it if implemented
       window.location.reload();
     } catch (err: any) {
       setError("Failed to update profile.");
@@ -101,12 +104,12 @@ function StudentProfilePage() {
   };
 
   return (
-    <DashboardLayout role="student">
+    <DashboardLayout role="admin">
       <div className="space-y-6 max-w-4xl">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold font-[var(--font-heading)]">Student Profile</h1>
-            <p className="text-muted-foreground text-sm mt-1">Your account summary and enrollment details.</p>
+            <h1 className="text-2xl font-bold font-[var(--font-heading)]">Admin Profile</h1>
+            <p className="text-muted-foreground text-sm mt-1">Manage your account details and security.</p>
           </div>
           {!isEditing && verificationStep === "idle" && (
             <Button variant="outline" onClick={handleStartEdit} disabled={loading}>
@@ -116,7 +119,7 @@ function StudentProfilePage() {
           )}
         </div>
 
-        <div id="student-profile-recaptcha"></div>
+        <div id="profile-recaptcha-container"></div>
 
         {error && (
           <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 flex items-center gap-2 text-sm text-destructive">
@@ -164,6 +167,10 @@ function StudentProfilePage() {
                 <label className="text-sm font-medium mb-1.5 block">Department</label>
                 <input type="text" value={editForm.department} onChange={(e) => setEditForm({ ...editForm, department: e.target.value })} className="w-full h-11 px-4 rounded-xl border border-input bg-background focus:ring-2 focus:ring-ring outline-none" />
               </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Designation</label>
+                <input type="text" value={editForm.designation} onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })} className="w-full h-11 px-4 rounded-xl border border-input bg-background focus:ring-2 focus:ring-ring outline-none" disabled={(profile as any)?.designation === "System Admin"} />
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
@@ -180,15 +187,15 @@ function StudentProfilePage() {
                 {profile?.profilePhotoUrl ? (
                   <img src={profile.profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full gradient-accent flex items-center justify-center">
-                    <User className="w-8 h-8 text-primary-foreground" />
+                  <div className="w-full h-full flex items-center justify-center">
+                    <User className="w-8 h-8 text-muted-foreground" />
                   </div>
                 )}
               </div>
               <div>
                 <h2 className="text-xl font-bold font-[var(--font-heading)]">{profile?.fullName}</h2>
                 <div className="flex items-center gap-2 mt-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary w-fit text-xs font-medium">
-                  Student • {(profile as any)?.year || ""}
+                  <Shield className="w-3 h-3" /> {(profile as any)?.designation || "Admin"}
                 </div>
               </div>
             </div>
@@ -204,7 +211,7 @@ function StudentProfilePage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-1">Department</p>
-                <p className="flex items-center gap-2 text-sm"><BookOpen className="w-4 h-4 text-muted-foreground" /> {profile?.department}</p>
+                <p className="text-sm">{profile?.department}</p>
               </div>
             </div>
           </div>

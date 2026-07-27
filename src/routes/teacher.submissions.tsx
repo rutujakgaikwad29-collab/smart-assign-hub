@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { StatusBadge } from "@/components/DashboardWidgets";
 import { motion } from "framer-motion";
-import { Eye, Download } from "lucide-react";
+import { Eye, Download, GraduationCap, CheckCircle2, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import {

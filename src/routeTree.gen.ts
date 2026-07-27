@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TeacherSubmissionsRouteImport } from './routes/teacher.submissions'
+import { Route as TeacherStudentsRouteImport } from './routes/teacher.students'
 import { Route as TeacherProfileRouteImport } from './routes/teacher.profile'
 import { Route as TeacherNotificationsRouteImport } from './routes/teacher.notifications'
 import { Route as TeacherLateRequestsRouteImport } from './routes/teacher.late-requests'
@@ -27,9 +28,11 @@ import { Route as StudentFeedbackRouteImport } from './routes/student.feedback'
 import { Route as StudentDashboardRouteImport } from './routes/student.dashboard'
 import { Route as StudentAssignmentsRouteImport } from './routes/student.assignments'
 import { Route as AdminTeachersRouteImport } from './routes/admin.teachers'
+import { Route as AdminSystemAdminRouteImport } from './routes/admin.system-admin'
 import { Route as AdminSubjectsRouteImport } from './routes/admin.subjects'
 import { Route as AdminStudentsRouteImport } from './routes/admin.students'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
+import { Route as AdminProfileRouteImport } from './routes/admin.profile'
 import { Route as AdminDashboardRouteImport } from './routes/admin.dashboard'
 
 const SignupRoute = SignupRouteImport.update({
@@ -50,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
 const TeacherSubmissionsRoute = TeacherSubmissionsRouteImport.update({
   id: '/teacher/submissions',
   path: '/teacher/submissions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeacherStudentsRoute = TeacherStudentsRouteImport.update({
+  id: '/teacher/students',
+  path: '/teacher/students',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TeacherProfileRoute = TeacherProfileRouteImport.update({
@@ -122,6 +130,11 @@ const AdminTeachersRoute = AdminTeachersRouteImport.update({
   path: '/admin/teachers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSystemAdminRoute = AdminSystemAdminRouteImport.update({
+  id: '/admin/system-admin',
+  path: '/admin/system-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminSubjectsRoute = AdminSubjectsRouteImport.update({
   id: '/admin/subjects',
   path: '/admin/subjects',
@@ -137,6 +150,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/admin/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminProfileRoute = AdminProfileRouteImport.update({
+  id: '/admin/profile',
+  path: '/admin/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/admin/dashboard',
   path: '/admin/dashboard',
@@ -148,9 +166,11 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/admin/subjects': typeof AdminSubjectsRoute
+  '/admin/system-admin': typeof AdminSystemAdminRoute
   '/admin/teachers': typeof AdminTeachersRoute
   '/student/assignments': typeof StudentAssignmentsRoute
   '/student/dashboard': typeof StudentDashboardRoute
@@ -165,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/teacher/late-requests': typeof TeacherLateRequestsRoute
   '/teacher/notifications': typeof TeacherNotificationsRoute
   '/teacher/profile': typeof TeacherProfileRoute
+  '/teacher/students': typeof TeacherStudentsRoute
   '/teacher/submissions': typeof TeacherSubmissionsRoute
 }
 export interface FileRoutesByTo {
@@ -172,9 +193,11 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/admin/subjects': typeof AdminSubjectsRoute
+  '/admin/system-admin': typeof AdminSystemAdminRoute
   '/admin/teachers': typeof AdminTeachersRoute
   '/student/assignments': typeof StudentAssignmentsRoute
   '/student/dashboard': typeof StudentDashboardRoute
@@ -189,6 +212,7 @@ export interface FileRoutesByTo {
   '/teacher/late-requests': typeof TeacherLateRequestsRoute
   '/teacher/notifications': typeof TeacherNotificationsRoute
   '/teacher/profile': typeof TeacherProfileRoute
+  '/teacher/students': typeof TeacherStudentsRoute
   '/teacher/submissions': typeof TeacherSubmissionsRoute
 }
 export interface FileRoutesById {
@@ -197,9 +221,11 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/profile': typeof AdminProfileRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/students': typeof AdminStudentsRoute
   '/admin/subjects': typeof AdminSubjectsRoute
+  '/admin/system-admin': typeof AdminSystemAdminRoute
   '/admin/teachers': typeof AdminTeachersRoute
   '/student/assignments': typeof StudentAssignmentsRoute
   '/student/dashboard': typeof StudentDashboardRoute
@@ -214,6 +240,7 @@ export interface FileRoutesById {
   '/teacher/late-requests': typeof TeacherLateRequestsRoute
   '/teacher/notifications': typeof TeacherNotificationsRoute
   '/teacher/profile': typeof TeacherProfileRoute
+  '/teacher/students': typeof TeacherStudentsRoute
   '/teacher/submissions': typeof TeacherSubmissionsRoute
 }
 export interface FileRouteTypes {
@@ -223,9 +250,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/admin/dashboard'
+    | '/admin/profile'
     | '/admin/settings'
     | '/admin/students'
     | '/admin/subjects'
+    | '/admin/system-admin'
     | '/admin/teachers'
     | '/student/assignments'
     | '/student/dashboard'
@@ -240,6 +269,7 @@ export interface FileRouteTypes {
     | '/teacher/late-requests'
     | '/teacher/notifications'
     | '/teacher/profile'
+    | '/teacher/students'
     | '/teacher/submissions'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -247,9 +277,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/admin/dashboard'
+    | '/admin/profile'
     | '/admin/settings'
     | '/admin/students'
     | '/admin/subjects'
+    | '/admin/system-admin'
     | '/admin/teachers'
     | '/student/assignments'
     | '/student/dashboard'
@@ -264,6 +296,7 @@ export interface FileRouteTypes {
     | '/teacher/late-requests'
     | '/teacher/notifications'
     | '/teacher/profile'
+    | '/teacher/students'
     | '/teacher/submissions'
   id:
     | '__root__'
@@ -271,9 +304,11 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/admin/dashboard'
+    | '/admin/profile'
     | '/admin/settings'
     | '/admin/students'
     | '/admin/subjects'
+    | '/admin/system-admin'
     | '/admin/teachers'
     | '/student/assignments'
     | '/student/dashboard'
@@ -288,6 +323,7 @@ export interface FileRouteTypes {
     | '/teacher/late-requests'
     | '/teacher/notifications'
     | '/teacher/profile'
+    | '/teacher/students'
     | '/teacher/submissions'
   fileRoutesById: FileRoutesById
 }
@@ -296,9 +332,11 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminProfileRoute: typeof AdminProfileRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminStudentsRoute: typeof AdminStudentsRoute
   AdminSubjectsRoute: typeof AdminSubjectsRoute
+  AdminSystemAdminRoute: typeof AdminSystemAdminRoute
   AdminTeachersRoute: typeof AdminTeachersRoute
   StudentAssignmentsRoute: typeof StudentAssignmentsRoute
   StudentDashboardRoute: typeof StudentDashboardRoute
@@ -313,6 +351,7 @@ export interface RootRouteChildren {
   TeacherLateRequestsRoute: typeof TeacherLateRequestsRoute
   TeacherNotificationsRoute: typeof TeacherNotificationsRoute
   TeacherProfileRoute: typeof TeacherProfileRoute
+  TeacherStudentsRoute: typeof TeacherStudentsRoute
   TeacherSubmissionsRoute: typeof TeacherSubmissionsRoute
 }
 
@@ -344,6 +383,13 @@ declare module '@tanstack/react-router' {
       path: '/teacher/submissions'
       fullPath: '/teacher/submissions'
       preLoaderRoute: typeof TeacherSubmissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teacher/students': {
+      id: '/teacher/students'
+      path: '/teacher/students'
+      fullPath: '/teacher/students'
+      preLoaderRoute: typeof TeacherStudentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/teacher/profile': {
@@ -444,6 +490,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminTeachersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/system-admin': {
+      id: '/admin/system-admin'
+      path: '/admin/system-admin'
+      fullPath: '/admin/system-admin'
+      preLoaderRoute: typeof AdminSystemAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/subjects': {
       id: '/admin/subjects'
       path: '/admin/subjects'
@@ -465,6 +518,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/profile': {
+      id: '/admin/profile'
+      path: '/admin/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AdminProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/dashboard': {
       id: '/admin/dashboard'
       path: '/admin/dashboard'
@@ -480,9 +540,11 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   AdminDashboardRoute: AdminDashboardRoute,
+  AdminProfileRoute: AdminProfileRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminStudentsRoute: AdminStudentsRoute,
   AdminSubjectsRoute: AdminSubjectsRoute,
+  AdminSystemAdminRoute: AdminSystemAdminRoute,
   AdminTeachersRoute: AdminTeachersRoute,
   StudentAssignmentsRoute: StudentAssignmentsRoute,
   StudentDashboardRoute: StudentDashboardRoute,
@@ -497,6 +559,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeacherLateRequestsRoute: TeacherLateRequestsRoute,
   TeacherNotificationsRoute: TeacherNotificationsRoute,
   TeacherProfileRoute: TeacherProfileRoute,
+  TeacherStudentsRoute: TeacherStudentsRoute,
   TeacherSubmissionsRoute: TeacherSubmissionsRoute,
 }
 export const routeTree = rootRouteImport

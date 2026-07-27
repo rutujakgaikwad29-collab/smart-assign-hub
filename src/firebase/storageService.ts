@@ -23,13 +23,19 @@ export function validateFile(file: File): string | null {
 export async function uploadAssignmentFile(
   file: File,
   studentUid: string,
-  assignmentId: string
+  assignmentId: string,
+  studentName: string = "student",
+  assignmentName: string = "assignment"
 ): Promise<string> {
   const error = validateFile(file);
   if (error) throw new Error(error);
 
   const ext = file.name.split(".").pop();
-  const path = `submissions/${assignmentId}/${studentUid}_${Date.now()}.${ext}`;
+  const safeStudentName = studentName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+  const safeAssignmentName = assignmentName.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+  const timestamp = Date.now();
+  
+  const path = `submissions/${assignmentId}/${safeStudentName}_${safeAssignmentName}_${timestamp}.${ext}`;
   const storageRef = ref(storage, path);
 
   await uploadBytes(storageRef, file);

@@ -26,6 +26,7 @@ const navItems: Record<UserRole, NavItem[]> = {
   ],
   teacher: [
     { label: "Dashboard", to: "/teacher/dashboard", icon: LayoutDashboard },
+    { label: "Students & Batches", to: "/teacher/students", icon: Users },
     { label: "Assignments", to: "/teacher/assignments", icon: FileText },
     { label: "Submissions", to: "/teacher/submissions", icon: FolderOpen },
     { label: "Late Requests", to: "/teacher/late-requests", icon: Clock },
@@ -57,8 +58,12 @@ export function DashboardLayout({
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, role: userRole, loading: authLoading, logout } = useAuth();
-  const items = navItems[role];
+  let items = [...navItems[role]];
   const roleInfo = roleLabels[role];
+  
+  if (role === "admin" && (profile as any)?.designation === "System Admin") {
+    items.unshift({ label: "System Dashboard", to: "/admin/system-admin", icon: Shield });
+  }
 
   // REAL-TIME ROLE PROTECTION: 
   // If user tries to access a dashboard that doesn't match their role, kick them out.
@@ -76,7 +81,7 @@ export function DashboardLayout({
 
   const displayName = profile?.fullName || "User";
   const displayEmail = profile?.email || "user@smartassign.pro";
-  const profilePath = role === "teacher" ? "/teacher/profile" : role === "student" ? "/student/profile" : "/admin/settings";
+  const profilePath = role === "teacher" ? "/teacher/profile" : role === "student" ? "/student/profile" : "/admin/profile";
   const notificationPath = role === "teacher" ? "/teacher/notifications" : role === "student" ? "/student/notifications" : "/admin/settings";
 
   return (
@@ -121,8 +126,12 @@ export function DashboardLayout({
         {/* User */}
         <div className="p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-full gradient-accent flex items-center justify-center">
-              <User className="w-4 h-4 text-primary-foreground" />
+            <div className="w-9 h-9 rounded-full gradient-accent flex items-center justify-center overflow-hidden shrink-0">
+              {profile?.profilePhotoUrl ? (
+                <img src={profile.profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-4 h-4 text-primary-foreground" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{displayName}</p>
@@ -229,10 +238,14 @@ export function DashboardLayout({
           <button
             type="button"
             onClick={() => navigate({ to: profilePath as any })}
-            className="w-8 h-8 rounded-full gradient-accent flex items-center justify-center hover:opacity-90 transition-opacity"
+            className="w-8 h-8 rounded-full gradient-accent flex items-center justify-center hover:opacity-90 transition-opacity overflow-hidden"
             aria-label="Profile"
           >
-            <User className="w-4 h-4 text-primary-foreground" />
+            {profile?.profilePhotoUrl ? (
+              <img src={profile.profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <User className="w-4 h-4 text-primary-foreground" />
+            )}
           </button>
         </header>
 

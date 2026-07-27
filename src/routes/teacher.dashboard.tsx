@@ -240,8 +240,21 @@ function TeacherDashboard() {
                 AI analysis is advisory only. Final decision rests with faculty.
               </div>
               <div className="space-y-2">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-[var(--font-heading)]">Welcome, {profile?.fullName || "Teacher"}</h1>
-                <p className="max-w-2xl text-sm md:text-base text-muted-foreground">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/20 shadow-sm shrink-0">
+                    {profile?.profilePhotoUrl ? (
+                      <img src={profile.profilePhotoUrl} alt="Teacher Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full gradient-primary flex items-center justify-center text-xl font-bold text-primary-foreground">
+                        {(profile?.fullName || "?").charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight font-[var(--font-heading)]">Welcome, {profile?.fullName || "Teacher"}</h1>
+                  </div>
+                </div>
+                <p className="max-w-2xl text-sm md:text-base text-muted-foreground mt-2">
                   Review student submissions with AI-suspicion guidance, transparent suggested actions, and quick faculty controls.
                 </p>
               </div>
@@ -304,176 +317,95 @@ function TeacherDashboard() {
           <StatCard title="Late Requests" value={stats.late} icon={Clock3} accent="warning" />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(0,0.9fr)]">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card shadow-sm">
-            <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold font-[var(--font-heading)]">Submission Review Queue</h2>
-                <p className="text-sm text-muted-foreground">Student name, assignment, AI suspicion score, risk level, and suggested action.</p>
+        <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-6">
+            <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold font-[var(--font-heading)]">Quick Activity</h2>
+                  <p className="text-xs text-muted-foreground">What needs a decision now.</p>
+                </div>
+                <Sparkles className="h-5 w-5 text-info-foreground" />
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={selectLowRisk}>
-                  <Users className="h-4 w-4" />
-                  Select Low Risk
-                </Button>
-                <Button variant="success" size="sm" onClick={bulkAccept} disabled={selected.length === 0}>
-                  <CheckCircle2 className="h-4 w-4" />
-                  Accept Selected ({selected.length})
-                </Button>
-                <Button variant="outline" size="sm" onClick={csvExport}>
-                  <Download className="h-4 w-4" />
-                  CSV
-                </Button>
-                <Button variant="outline" size="sm" onClick={pdfExport}>
-                  <Download className="h-4 w-4" />
-                  PDF
-                </Button>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between rounded-2xl border border-border bg-background p-3 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate({ to: "/teacher/submissions" })}>
+                  <span>Pending reviews</span>
+                  <span className="font-semibold">{stats.assignments}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-border bg-background p-3 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate({ to: "/teacher/late-requests" })}>
+                  <span>Late requests</span>
+                  <span className="font-semibold">{stats.late}</span>
+                </div>
               </div>
-            </div>
+            </motion.section>
 
-            <div className="border-b border-border p-4">
-              <div className="grid gap-3 lg:grid-cols-[1.3fr_0.8fr_0.8fr_0.8fr_auto]">
-                <label className="flex items-center gap-2 rounded-xl border border-input bg-background px-3 h-11">
-                  <Search className="h-4 w-4 text-muted-foreground" />
-                  <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search student, assignment, course" className="w-full bg-transparent text-sm outline-none" />
-                </label>
-                <select value={course} onChange={(e) => setCourse(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3 text-sm outline-none">
-                  <option value="all">All Courses</option>
-                  <option value="CSE 1A">CSE 1A</option>
-                  <option value="CSE 2A">CSE 2A</option>
-                  <option value="CSE 2B">CSE 2B</option>
-                  <option value="CSE 3A">CSE 3A</option>
-                </select>
-                <select value={risk} onChange={(e) => setRisk(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3 text-sm outline-none">
-                  <option value="all">All Risk Levels</option>
-                  <option value="Low">Low Risk</option>
-                  <option value="Medium">Medium Risk</option>
-                  <option value="High">High Risk</option>
-                </select>
-                <select value={date} onChange={(e) => setDate(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3 text-sm outline-none">
-                  <option value="all">Any Date</option>
-                  <option value="today">Today</option>
-                  <option value="week">This Week</option>
-                </select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSearch("");
-                    setCourse("all");
-                    setRisk("all");
-                    setDate("all");
-                  }}
-                >
-                  <RefreshCcw className="h-4 w-4" />
-                  Reset
-                </Button>
+            <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold font-[var(--font-heading)]">Notifications</h2>
+                  <p className="text-xs text-muted-foreground">Workflow alerts.</p>
+                </div>
+                <AlertTriangle className="h-5 w-5 text-warning-foreground" />
               </div>
-            </div>
+              <div className="space-y-3">
+                {alerts.map((item) => (
+                  <div
+                    key={item.title}
+                    className={`rounded-2xl border p-4 ${
+                      item.tone === "high" ? "border-destructive/20 bg-destructive/10" : item.tone === "medium" ? "border-warning/30 bg-warning/10" : "border-success/20 bg-success/10"
+                    }`}
+                  >
+                    <p className="text-sm font-medium">{item.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{item.body}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.section>
+          </div>
 
-            <div className="divide-y divide-border">
-              {filtered.map((row) => {
-                const isSelected = selected.includes(row.id);
-                return (
-                  <motion.div key={row.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={`p-5 transition-colors hover:bg-muted/30 ${isSelected ? "bg-primary/5" : ""}`}>
-                    {/* Row 1: Student info + AI score — all horizontal */}
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(row.id)}
-                        className="h-4 w-4 rounded border-border accent-primary cursor-pointer shrink-0"
-                      />
-                      <div className="relative shrink-0">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl gradient-primary text-sm font-bold text-primary-foreground shadow-sm">
-                          {row.student.split(" ").map((part) => part[0]).join("").slice(0, 2)}
-                        </div>
-                        <div className={`absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full border-2 border-card ${row.risk === "Low" ? "bg-success" : row.risk === "Medium" ? "bg-warning" : "bg-destructive"}`} />
+          <div className="space-y-6">
+            <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm h-full">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold font-[var(--font-heading)]">Recently Enrolled Students</h2>
+                  <p className="text-xs text-muted-foreground">Live updates</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                  <GraduationCap className="h-5 w-5 text-info-foreground" />
+                </div>
+              </div>
+              {recentStudents.length === 0 ? (
+                <div className="text-center text-sm text-muted-foreground py-4">No students enrolled yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {recentStudents.map((student) => (
+                    <div key={student.id} className="flex items-center gap-3 rounded-2xl border border-border bg-background p-3 hover:bg-muted/30 transition-colors">
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-border shrink-0">
+                        {student.profilePhotoUrl ? (
+                          <img src={student.profilePhotoUrl} alt={student.fullName} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full gradient-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground">
+                            {(student.fullName || "?").split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-bold font-[var(--font-heading)] truncate">{row.student}</h3>
-                          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${riskBadge(row.risk)}`}>
-                            {row.risk}
-                          </span>
-                          <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            {row.course}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-                          <span className="text-primary font-semibold">{row.assignment}</span>
-                          <span className="opacity-40">•</span>
-                          <span>Submitted {row.submittedOn}</span>
-                        </div>
-                      </div>
-                      {/* AI Score — inline pill */}
-                      <div className="flex items-center gap-3 shrink-0 rounded-2xl border border-border bg-muted/20 px-4 py-2.5">
-                        <div className="text-center">
-                          <p className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground">AI Score</p>
-                          <p className={`text-lg font-black font-[var(--font-heading)] ${row.risk === "Low" ? "text-success" : row.risk === "Medium" ? "text-warning" : "text-destructive"}`}>
-                            {scanningIds[row.id] ? "..." : `${row.score}%`}
-                          </p>
-                        </div>
-                        <div className="relative h-10 w-1.5 rounded-full bg-muted/40 overflow-hidden">
-                          <motion.div
-                            initial={{ height: 0 }}
-                            animate={{ height: `${row.score}%` }}
-                            transition={{ type: "spring", stiffness: 100, damping: 15 }}
-                            className={`absolute bottom-0 w-full rounded-full ${row.risk === "Low" ? "bg-success" : row.risk === "Medium" ? "bg-warning" : "bg-destructive"}`}
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 rounded-full hover:bg-primary/10 hover:text-primary"
-                          onClick={() => handleAIScan(row)}
-                          disabled={scanningIds[row.id]}
-                        >
-                          <RefreshCcw className={`h-3.5 w-3.5 ${scanningIds[row.id] ? "animate-spin" : ""}`} />
-                        </Button>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{student.fullName || "N/A"}</p>
+                        <p className="text-xs text-muted-foreground truncate">{student.department || "No dept"} • {student.year} {student.division}{student.batch ? `-${student.batch}` : ""}</p>
                       </div>
                     </div>
-
-                    {/* Row 2: Full feedback text — no truncation */}
-                    <p className="mt-3 text-sm leading-relaxed text-muted-foreground italic bg-muted/15 px-4 py-2.5 rounded-xl border-l-3 border-primary/20 ml-[60px]">
-                      "{row.notes}"
-                    </p>
-
-                    {/* Row 3: Action buttons — all horizontal */}
-                    <div className="mt-3 flex items-center gap-2 flex-wrap ml-[60px]">
-                      <Button variant="outline" size="sm" className="h-9 rounded-xl gap-1.5 font-bold text-xs hover:bg-success/10 hover:text-success hover:border-success/30" onClick={() => window.alert(`Accepted ${row.student}`)}>
-                        <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-                        Accept
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-9 rounded-xl gap-1.5 font-bold text-xs hover:bg-warning/10 hover:text-warning hover:border-warning/30" onClick={() => window.alert(`Resubmit ${row.student}`)}>
-                        <Send className="h-3.5 w-3.5 text-warning" />
-                        Resubmit
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-9 rounded-xl gap-1.5 font-bold text-xs hover:bg-info/10 hover:text-info hover:border-info/30" onClick={() => window.alert(`Viva for ${row.student}`)}>
-                        <Users className="h-3.5 w-3.5 text-info" />
-                        Viva
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-9 rounded-xl gap-1.5 font-bold text-xs hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30" onClick={() => window.alert(`Flagged ${row.student}`)}>
-                        <Flag className="h-3.5 w-3.5 text-destructive" />
-                        Flag
-                      </Button>
-                      <div className="w-px h-6 bg-border mx-1" />
-                      <Button variant="hero" size="sm" className="h-9 rounded-xl gap-1.5 font-bold text-xs shadow-md" onClick={() => requestClarification(row)}>
-                        <Mail className="h-3.5 w-3.5" />
-                        Request clarification
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-9 rounded-xl gap-1.5 font-bold text-xs text-muted-foreground hover:text-foreground border-dashed" onClick={() => window.alert(`Viewing details`)}>
-                        <Eye className="h-3.5 w-3.5" />
-                        View details
-                      </Button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-              {filtered.length === 0 && <div className="p-10 text-center text-sm text-muted-foreground">No submissions match your filters.</div>}
-            </div>
-          </motion.div>
-
+                  ))}
+                </div>
+              )}
+              <div className="mt-4 text-center">
+                <Button variant="outline" size="sm" className="w-full rounded-xl" onClick={() => navigate({ to: "/teacher/students" })}>
+                  View All Students
+                </Button>
+              </div>
+            </motion.section>
+          </div>
+          
           <div className="space-y-6">
             <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
@@ -501,30 +433,7 @@ function TeacherDashboard() {
                 ))}
               </div>
             </motion.section>
-
-            <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold font-[var(--font-heading)]">Notifications</h2>
-                  <p className="text-xs text-muted-foreground">Workflow alerts.</p>
-                </div>
-                <AlertTriangle className="h-5 w-5 text-warning-foreground" />
-              </div>
-              <div className="space-y-3">
-                {alerts.map((item) => (
-                  <div
-                    key={item.title}
-                    className={`rounded-2xl border p-4 ${
-                      item.tone === "high" ? "border-destructive/20 bg-destructive/10" : item.tone === "medium" ? "border-warning/30 bg-warning/10" : "border-success/20 bg-success/10"
-                    }`}
-                  >
-                    <p className="text-sm font-medium">{item.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{item.body}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.section>
-
+            
             <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <div>
@@ -537,62 +446,8 @@ function TeacherDashboard() {
                 AI analysis is advisory only. Final decisions should use judgment, drafts, oral checks, and classroom context.
               </div>
             </motion.section>
-
-            <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold font-[var(--font-heading)]">Recently Enrolled Students</h2>
-                  <p className="text-xs text-muted-foreground">Live updates • New enrollments appear automatically</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                  <GraduationCap className="h-5 w-5 text-info-foreground" />
-                </div>
-              </div>
-              {recentStudents.length === 0 ? (
-                <div className="text-center text-sm text-muted-foreground py-4">No students enrolled yet.</div>
-              ) : (
-                <div className="space-y-2">
-                  {recentStudents.map((student) => (
-                    <div key={student.id} className="flex items-center gap-3 rounded-2xl border border-border bg-background p-3 hover:bg-muted/30 transition-colors">
-                      <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                        {(student.fullName || "?").split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{student.fullName || "N/A"}</p>
-                        <p className="text-xs text-muted-foreground truncate">{student.department || "No dept"} • {student.rollNumber || "No roll"}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </motion.section>
-
-            <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-border bg-card p-5 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold font-[var(--font-heading)]">Quick Activity</h2>
-                  <p className="text-xs text-muted-foreground">What needs a decision now.</p>
-                </div>
-                <Sparkles className="h-5 w-5 text-info-foreground" />
-              </div>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between rounded-2xl border border-border bg-background p-3">
-                  <span>Pending reviews</span>
-                  <span className="font-semibold">{stats.assignments}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-border bg-background p-3">
-                  <span>Viva recommendations</span>
-                  <span className="font-semibold">{dataRows.filter((row) => row.action === "Viva").length}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl border border-border bg-background p-3">
-                  <span>Clarifications needed</span>
-                  <span className="font-semibold">{dataRows.filter((row) => row.risk !== "Low").length}</span>
-                </div>
-
-              </div>
-            </motion.section>
           </div>
+
         </section>
       </div>
     </DashboardLayout>

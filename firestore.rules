@@ -60,24 +60,56 @@ service cloud.firestore {
 
     // --- Assignments Collection ---
     match /assignments/{assignmentId} {
-      allow read: if true; 
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && (resource.data.teacherUid == request.auth.uid || isAdmin());
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        (isTeacher() && resource.data.teacherUid == request.auth.uid) ||
+        (isStudent() && (
+          // Exact match: student's classId matches assignment's classId
+          resource.data.classId == getUserData().classId ||
+          // Prefix match: assignment classId is a prefix of student's classId (handles batch suffix)
+          // e.g. assignment classId = "CS-2-A", student classId = "CS-2-A-B1"
+          getUserData().classId.matches(resource.data.classId + '.*')
+        ))
+      );
+      allow create: if isTeacher() || isAdmin();
+      allow update, delete: if isAuthenticated() && (resource.data.teacherUid == request.auth.uid || isAdmin());
     }
 
     // --- Submissions Collection ---
     match /submissions/{submissionId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if request.auth != null && (resource.data.studentUid == request.auth.uid || isTeacher() || isAdmin());
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        (isStudent() && resource.data.studentUid == request.auth.uid) ||
+        isTeacher()
+      );
+      allow create: if isStudent() && request.resource.data.studentUid == request.auth.uid;
+      // Teachers can update for grading, students can update for resubmission
+      allow update: if isAuthenticated() && (
+        resource.data.studentUid == request.auth.uid || 
+        isTeacher() || 
+        isAdmin()
+      );
       allow delete: if isAdmin();
     }
 
     // --- Late Requests Collection ---
     match /lateRequests/{requestId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if request.auth != null && (resource.data.studentUid == request.auth.uid || isTeacher() || isAdmin());
+      allow create: if isStudent() && request.resource.data.studentUid == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.studentUid == request.auth.uid || 
+        isTeacher() || 
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // --- Notifications Collection ---
+    match /notifications/{notificationId} {
+      // Users can only read and mark their own notifications as read
+      allow read, update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Teachers and admins can send notifications
+      allow create: if isTeacher() || isAdmin();
       allow delete: if isAdmin();
     }
   }
